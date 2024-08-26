@@ -1,0 +1,22 @@
+{
+<<<<<<<< HEAD:dbs/tickets.json
+    "2af05588-99e8-41ef-b7c7-1bbf81cd0254": {
+        "userId": "373989185335590912",
+        "channelId": "1277755411767885937",
+        "status": "waiting_for_mod",
+        "createdAt": 1724710990960
+    },
+    "e41f0e6c-7cc2-48dd-9cc0-b486e9e06338": {
+        "userId": "1153018211093200937",
+        "channelId": "1277758797678514177",
+        "status": "verified",
+        "createdAt": 1724711798321
+========
+    "435c9b73-bc6b-4feb-9f22-128187bd85e0": {
+        "userId": "userid",
+        "channelId": "channelid",
+        "status": "mod_selected",
+        "createdAt": 1724533101346
+>>>>>>>> 0fc6b96c6559eeb67802bd85455b7ee1c766bd72:dbs/tickets.json.example
+    }
+}
