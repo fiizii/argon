@@ -1,11 +1,79 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const JSONdb = require('simple-json-db');
-const db = new JSONdb('./dbs/tickets.json');
 
 const MOD_ROLE_ID = '1236285478039326730';
 const VERIFIED_ROLE_ID = '1276960602362871938';
 
+async function handleMod(interaction, log = console) {
+    const db = new JSONdb('./dbs/tickets.json');
+
+    const [action, _, modId, ticketId] = interaction.isStringSelectMenu() 
+        ? interaction.values[0].split('_') 
+        : interaction.customId.split('_');
+
+    log.info(`Action: ${action}, Mod ID: ${modId}, Ticket ID: ${ticketId}`);
+
+    const ticketData = action === 'any' ? db.get(modId) : db.get(ticketId);
+    const _ticketId = action === 'any' ? modId : ticketId;
+    if (!ticketData) {
+        await interaction.reply({ content: 'This ticket no longer exists.', ephemeral: true });
+        return;
+    }
+
+    const channel = await interaction.guild.channels.fetch(ticketData.channelId);
+    const user = await interaction.client.users.fetch(ticketData.userId);
+    const modRole = interaction.guild.roles.cache.get(MOD_ROLE_ID);
+
+    if (action === 'select') {
+        const mod = await interaction.guild.members.fetch(modId);
+        await channel.permissionOverwrites.edit(mod.id, { ViewChannel: true });
+        await channel.send(`${mod}, you have been selected to handle this ticket.`);
+        log.info(`${mod.user.tag} has been selected to handle ticket ${_ticketId}`);
+    } else if (action === 'any') {
+        await channel.permissionOverwrites.edit(modRole.id, { ViewChannel: true });
+        await channel.send('No specific moderator was selected. Any available moderator can handle this ticket. @here');
+        log.info(`Any available moderator has been selected to handle ticket ${_ticketId}`);
+    }
+
+    ticketData.status = 'mod_selected';
+    db.set(_ticketId, ticketData);
+
+    await sendVerificationInstructions(channel, user, _ticketId);
+    await interaction.update({ components: [] });
+}
+
+async function sendVerificationInstructions(channel, user, ticketId) {
+    const verificationEmbed = new EmbedBuilder()
+        .setTitle('Age Verification Instructions')
+        .setDescription('Hey pup, follow these steps to verify your age:')
+        .addFields(
+            { name: 'Step 1', value: 'Take a clear photo of your ID on a piece of paper with the server name and your username written.' },
+            { name: 'Step 2', value: 'Censor everything but your birthday and upload the photo to this channel' },
+            { name: 'Step 3', value: 'Wait for a moderator to review your submission' }
+        )
+        .setColor('#00ff00');
+
+    const modTools = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`verify_success_${ticketId}`)
+            .setLabel('Verify User')
+            .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+            .setCustomId(`verify_failure_${ticketId}`)
+            .setLabel('Reject Verification')
+            .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+            .setCustomId(`ban_user_${ticketId}`)
+            .setLabel('Super Reject (Ban)')
+            .setStyle(ButtonStyle.Secondary)
+    );
+
+    await channel.send({ embeds: [verificationEmbed], components: [modTools] });
+}
+
 async function handleVerif(interaction, log = console) {
+    const db = new JSONdb('./dbs/tickets.json');
+
     const [action, result, ticketId] = interaction.customId.split('_');
     log.info(`Action: ${action}, Result: ${result}, Ticket ID: ${ticketId}`);
 
@@ -40,6 +108,7 @@ async function handleVerif(interaction, log = console) {
 }
 
 async function verifyUser(channel, member, log) {
+    
     const verifiedRole = channel.guild.roles.cache.get(VERIFIED_ROLE_ID);
     if (verifiedRole) {
         await member.roles.add(verifiedRole);

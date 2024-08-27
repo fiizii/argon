@@ -55,6 +55,7 @@ client.on('interactionCreate', async interaction => {
        try { await handleInteraction(interaction, Log);
        } catch (error) {
               Log.error("Error while trying to fulfill the interaction: " + interaction.customId);
+              console.log(error);
               await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
        }
     }
