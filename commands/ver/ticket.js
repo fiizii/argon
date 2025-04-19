@@ -1,22 +1,29 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const JSONdb = require('simple-json-db');
-const db = new JSONdb('./dbs/tickets.json');
 const { v4: uuidv4 } = require('uuid');
 
-const TICKET_CHANNEL_ID = '1276992473910083654';
-const TICKET_CATEGORY_ID = '1276960875403673683';
-const MOD_ROLE_ID = '1236285478039326730';
+const TICKET_CHANNEL_ID = process.env.TICKET_CHANNEL_ID || '1276992473910083654';
+const TICKET_CATEGORY_ID = process.env.TICKET_CATEGORY_ID || '1276960875403673683';
+const MOD_ROLE_ID = process.env.MOD_ROLE_ID || '1236285478039326730';
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('ticket')
         .setDescription('Create a ticket for age verification.'),
     async execute(interaction, client) {
+        const db = new JSONdb('./dbs/tickets.json');
+
         if (interaction.channel.type === 'DM' || interaction.channel.id !== TICKET_CHANNEL_ID) {
             return interaction.reply({ content: 'This command can only be used in the designated ticket channel.', ephemeral: true });
         }
-
         await interaction.deferReply({ ephemeral: true });
+
+        const ticket = Object.values(db.JSON()).find(ticket => ticket.userId === interaction.user.id);
+        if (ticket && ['verified', 'rejected'].includes(ticket.status)) {
+            console.log('Deleting ticket:', ticket);
+            db.delete(ticket.id);
+        }
+
 
         const { guild, user } = interaction;
 
@@ -35,7 +42,8 @@ module.exports = {
             userId: user.id,
             channelId: ticketChannel.id,
             status: 'waiting_for_mod',
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            id: ticketId,
         });
 
         await sendModeratorSelectionMessage(ticketChannel, user, ticketId);
@@ -44,9 +52,22 @@ module.exports = {
 };
 
 function hasOpenTicket(userId) {
-    return Object.values(db.JSON()).some(ticket => ticket.userId === userId && ticket.status === 'waiting_for_mod');
+    const db = new JSONdb('./dbs/tickets.json');
+    const ticket = Object.values(db.JSON()).some(ticket => ticket.userId === userId && ticket.status === 'waiting_for_mod') || Object.values(db.JSON()).some(ticket => ticket.userId === userId && ticket.status === 'mod_selected');
+    if (ticket) {
+        const ticketChannel = interaction.guild.channels.cache.get(ticket.channelId);
+        if (!ticketChannel) {
+            db.delete(ticket.id);
+            return false;
+        } else {
+            return true;
+        }
+    }
+    return false;
 }
 function alreadyVerified(userId) {
+    const db = new JSONdb('./dbs/tickets.json');
+
     return Object.values(db.JSON()).some(ticket => ticket.userId === userId && ticket.status === 'verified');
 }
 async function createTicketChannel(guild, user, clientUser) {

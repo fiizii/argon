@@ -3,6 +3,7 @@ const JSONdb = require('simple-json-db');
 
 const MOD_ROLE_ID = '1236285478039326730';
 const VERIFIED_ROLE_ID = '1276960602362871938';
+const BAN_LOG_ID = '1236307562941644880';
 
 async function handleMod(interaction, log = console) {
     const db = new JSONdb('./dbs/tickets.json');
@@ -86,7 +87,7 @@ async function handleVerif(interaction, log = console) {
 
     const channel = await interaction.guild.channels.fetch(ticketData.channelId);
     const member = await interaction.guild.members.fetch(ticketData.userId);
-
+    console.log(interaction.customId)
     switch (result) {
         case 'success':
             await verifyUser(channel, member, log);
@@ -94,7 +95,7 @@ async function handleVerif(interaction, log = console) {
         case 'failure':
             await rejectUser(channel, member, log);
             break;
-        case 'ban':
+        case 'user':
             await banUser(channel, member, log);
             break;
         default:
@@ -103,7 +104,9 @@ async function handleVerif(interaction, log = console) {
     }
 
     ticketData.status = result === 'success' ? 'verified' : result === 'ban' ? 'banned' : 'rejected';
+
     db.set(ticketId, ticketData);
+
     await interaction.update({ components: [] });
 }
 
@@ -115,21 +118,27 @@ async function verifyUser(channel, member, log) {
     }
     await channel.send(`${member}, your age verification was successful. Welcome puppy!`);
     log.info(`${member.user.tag} has been verified as an adult\`\`\`\n> ${member.user.tag}\n> ${member.user.id}\n\`\`\`${Date.now()}`);
-    setTimeout(() => channel.delete(), 5000);
+    setTimeout(() => channel.delete().catch(()=>{}), 5000);
 }
 
 async function rejectUser(channel, member, log) {
-    await member.timeout(7 * 24 * 60 * 60 * 1000, 'Failed age verification');
+    await member.timeout(7 * 24 * 60 * 60 * 1000, 'Failed age verification').catch(log.error);
     await channel.send(`${member}, your age verification was unsuccessful. You can try again in a week.`);
     log.info(`${member.user.tag} has failed age verification`);
-    setTimeout(() => channel.delete(), 5000);
+    setTimeout(() => channel.delete().catch(()=>{}), 5000);
 }
 
 async function banUser(channel, member, log) {
-    await member.ban({ reason: 'Underage user' });
-    await channel.send(`${member} has been banned for being underage.`);
+    try {
+        if (BAN_LOG_ID) {
+            const banLog = await channel.guild.channels.fetch(BAN_LOG_ID);
+            await banLog.send(`> ${member} has been banned for being underage.`);
+        }
+    } catch (error) { log.error(error); }
+    await member.ban({ reason: 'Underage user' }).catch(log.error);
+    await channel.send(`${member} has been banned for being underage.`).catch(log.error);
     log.info(`${member.user.tag} has been banned for being underage`);
-    setTimeout(() => channel.delete(), 5000);
+    setTimeout(() => channel.delete().catch(()=>{}), 5000);
 }
 
 async function handleInteraction(interaction, log = console) {
@@ -138,11 +147,21 @@ async function handleInteraction(interaction, log = console) {
 
         switch (action) {
             case 'any':
+                await handleMod(interaction, log);
+                break;
             case 'select':
+                await handleMod(interaction, log);
+                break;
             case 'offline':
                 await handleMod(interaction, log);
                 break;
             case 'verify':
+                if (interaction.member.roles.cache.has(MOD_ROLE_ID) || interaction.member.permissions.has(PermissionFlagsBits.ADMINISTRATOR)) {
+                    await handleVerif(interaction, log);
+                } else {
+                    await interaction.reply({ content: 'Bad dog! You aren\'t allowed to verify people.', ephemeral: true });
+                }
+                break;
             case 'ban':
                 if (interaction.member.roles.cache.has(MOD_ROLE_ID) || interaction.member.permissions.has(PermissionFlagsBits.ADMINISTRATOR)) {
                     await handleVerif(interaction, log);

@@ -33,6 +33,7 @@ function loadCommands(dir) {
 }
 
 client.once('ready', () => {
+    Log.info('Ready!');
     Log.setClient(client, true);
     Log.info(`Logged in as ${client.user.tag}!`);
     
@@ -49,16 +50,26 @@ client.on('interactionCreate', async interaction => {
             await command.execute(interaction, client);
         } catch (error) {
             Log.error(error);
+            try {
             await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
+            } catch{
+                await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true }).catch(console.error);
+            }
         }
     } else if (interaction.isButton() || interaction.isStringSelectMenu()) {
        try { await handleInteraction(interaction, Log);
        } catch (error) {
               Log.error("Error while trying to fulfill the interaction: " + interaction.customId);
               console.log(error);
-              await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+              await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true }).catch(()=>{})
        }
     }
 });
+
+client.on('messageCreate', async message => {
+    if (message.channel.id === '1276992473910083654' && !message.author.bot && !message.member.roles.cache.has('1236285478039326730')) {
+        message.delete().catch(console.error);
+    }
+})
 
 client.login(process.env.discordToken);
