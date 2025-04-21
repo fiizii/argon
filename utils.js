@@ -1,39 +1,49 @@
-
 require("dotenv").config()
 //utils.js
 const fs = require('node:fs');
 const path = require('node:path');
 const { REST, Routes } = require('discord.js');
 
-
-
 class Log {
+    static formatMessage(args) {
+        return args.map(arg => {
+            if (typeof arg === 'object') {
+                return JSON.stringify(arg, null, 2);
+            }
+            return String(arg);
+        }).join(' ');
+    }
 
-    static log(message) {
+    static log(...args) {
+        const message = this.formatMessage(args);
         const formattedMessage = `\x1b[36m[${new Date().toLocaleString()}]\x1b[0m ${message}`;
         console.log(formattedMessage);
         if (this.client && this.shouldPush) this.sendLongMessage(formattedMessage, process.env.logChannelID);
     }
 
-    static error(message) {
+    static error(...args) {
+        const message = this.formatMessage(args);
         const formattedMessage = `\x1b[31m[${new Date().toLocaleString()}]\x1b[0m ${message}`;
         console.error(formattedMessage);
         if (this.client && this.shouldPush) this.sendLongMessage(formattedMessage, process.env.logChannelID);
     }
 
-    static warn(message) {
+    static warn(...args) {
+        const message = this.formatMessage(args);
         const formattedMessage = `\x1b[33m[${new Date().toLocaleString()}]\x1b[0m ${message}`;
         console.warn(formattedMessage);
         if (this.client && this.shouldPush) this.sendLongMessage(formattedMessage, process.env.logChannelID);
     }
 
-    static info(message) {
+    static info(...args) {
+        const message = this.formatMessage(args);
         const formattedMessage = `\x1b[32m[${new Date().toLocaleString()}]\x1b[0m ${message}`;
         console.info(formattedMessage);
         if (this.client && this.shouldPush) this.sendLongMessage(formattedMessage, process.env.logChannelID);
     }
 
-    static debug(message) {
+    static debug(...args) {
+        const message = this.formatMessage(args);
         const formattedMessage = `\x1b[34m[${new Date().toLocaleString()}]\x1b[0m ${message}`;
         console.debug(formattedMessage);
         if (this.client && this.shouldPush) this.sendLongMessage(formattedMessage, process.env.logChannelID);
@@ -66,6 +76,7 @@ class Log {
         return parts;
     }
 }
+
 async function registerSlash() {
     const commands = [];
     const cmds = path.join(__dirname, 'commands');
@@ -100,8 +111,5 @@ async function registerSlash() {
         console.error(error);
     }
 }
-
-
-
 
 module.exports = { registerSlash, Log };
